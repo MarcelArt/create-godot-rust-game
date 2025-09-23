@@ -1,4 +1,4 @@
-use std::{fs::{self}, process::Command};
+use std::{fs::{self}, path::Path, process::Command};
 use crate::utils::snake_case;
 
 fn clone_template(project_name: String) {
@@ -17,30 +17,28 @@ fn clone_template(project_name: String) {
 }
 
 fn rollback(project_name: String) {
-    let output = Command::new("rm")
-        .arg("-rf")
-        .arg(&project_name)
-        .output()
-        .expect("Failed to execute command");
+    let project_path = Path::new(&project_name);
 
-    if !output.status.success() {
-        eprintln!("Error rolling back: {}", String::from_utf8_lossy(&output.stderr));
-        std::process::exit(1);
+    if project_path.exists() {
+        if let Err(err) = fs::remove_dir_all(&project_path) {
+            eprintln!("Error rolling back (removing project): {}", err);
+            std::process::exit(1);
+        }
     }
+
 }
 
 fn remove_git_directory(project_name: String) {
-    let output = Command::new("rm")
-        .arg("-rf")
-        .arg(format!("{}/.git", project_name))
-        .output()
-        .expect("Failed to execute command");
+    let git_path = Path::new(&project_name).join(".git");
 
-    if !output.status.success() {
-        eprintln!("Error removing .git directory: {}", String::from_utf8_lossy(&output.stderr));
-        rollback(project_name.clone());
-        std::process::exit(1);
+    if git_path.exists() {
+        if let Err(err) = fs::remove_dir_all(&git_path) {
+            eprintln!("Error removing .git directory: {}", err);
+            rollback(project_name);
+            std::process::exit(1);
+        }
     }
+
 }
 
 fn refactor_project_name(project_name: String, snake_case_name: String) -> Result<(), String> {
